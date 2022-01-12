@@ -1,0 +1,19 @@
+{
+  "name": "assingment2",
+  "version": "1.0.0",
+  "description": "Tomer And Alex",
+  "main": "index.js",
+  "scripts": {
+    "test": "test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system.git"
+  },
+  "author": "Tomer Nagar",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system/issues"
+  },
+  "homepage": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system#readme"
+}
