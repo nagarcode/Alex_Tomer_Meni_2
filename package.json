@@ -15,5 +15,8 @@
   "bugs": {
     "url": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system/issues"
   },
-  "homepage": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system#readme"
+  "homepage": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system#readme",
+  "dependencies": {
+    "split": "^1.0.1"
+  }
 }

@@ -66,8 +66,6 @@ class InputParser {
   }
 }
 
-module.exports.InputParser = InputParser;
-
 function removeWhitespaces(lines) {
   var index = 0;
   lines.forEach((line) => {
@@ -75,3 +73,5 @@ function removeWhitespaces(lines) {
     index++;
   });
 }
+
+module.exports.InputParser = InputParser;
