@@ -8,6 +8,9 @@ class DeleteAction {
   apply(str) {
     return str.slice(0, this.index) + str.slice(this.index + 1);
   }
+  str(){
+    return 'delete '+ this.index;
+  }
 }
 class InsertAction {
   constructor(index, toAppend) {
@@ -23,6 +26,12 @@ class InsertAction {
       return str + this.toAppend;
     }
     return str.slice(0, this.index) + this.toAppend + str.slice(this.index);
+  }
+  str(){
+    var toRet = 'insert ';
+    if(this.index != -1) toRet += this.index;
+    toRet += this.toAppend;
+    return toRet;
   }
 }
 module.exports.DeleteAction = DeleteAction;
