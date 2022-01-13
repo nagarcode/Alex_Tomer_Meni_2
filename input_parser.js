@@ -18,9 +18,9 @@ class InputParser {
     var index = 4;
     index = this.parseNeighbors(index, lines);
     index = this.parseActions(index, lines);
-    console.log(this.actions);
+    // console.log(this.actions);
     this.actions.forEach(a => {
-      console.log(a.apply('abcde'))
+      // console.log(a.apply('abcde'))
     });
     return this.neighbors;
   }

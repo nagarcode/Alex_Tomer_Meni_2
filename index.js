@@ -5,14 +5,31 @@ function sleepSync(millis) {
 // Include Nodejs' net module.
 const Net = require("net");
 const a = require("./input_parser");
+const ts = require("./timestamp");
 const index = process.argv[2];
 var inputParser = new a.InputParser("input-file-" + index + ".txt");
 const neighbors = inputParser.parse();
 const myID = inputParser.id;
 const myPort = inputParser.port;
 const initialString = inputParser.initialString;
-setupServer(myPort);
-connectToPeers();
+// setupServer(myPort);
+// connectToPeers();
+const act = require("./action");
+const updates = [
+  {
+    action: new act.InsertAction(-1, "2"),
+    timestamp: new ts.Timestamp(2, -1),
+    updatedString: initialString,
+    previousString: initialString,
+  },
+];
+var lastUpdatedOperaion = {
+  action: new act.InsertAction(-1, "2"),
+  timestamp: new ts.Timestamp(2, -1),
+  updatedString: initialString,
+  previousString: initialString,
+};
+testAll();
 
 function connectToPeer(peer) {
   // Create a new TCP client.
@@ -80,4 +97,74 @@ function setupServer(port) {
     });
   });
   return server;
+}
+function applyMergeAlgorithm(action, timestamp) {
+  if (lastUpdatedOperaion.timestamp.greaterThan(timestamp)) {
+    applyLaterOperations(action, timestamp);
+  } else {
+    performActionAndLog(timestamp, lastUpdatedOperaion.updatedString, action);
+  }
+}
+function applyLaterOperations(action, timestamp) {
+  const laterActions = updates.filter((update) =>
+    update.timestamp.greaterThan(timestamp)
+  );
+  laterActions.sort((a, b) => {
+    if (a.timestamp.greaterThan(b.timestamp)) return 1;
+    else return -1;
+  });
+  applyOperationsAndLog(laterActions, action, timestamp);
+}
+function applyOperationsAndLog(laterActions, action, timestamp) {
+  var workingString = laterActions[0].previousString;
+  workingString = performActionAndLog(timestamp, workingString, action);
+  // console.log(laterActions);
+  laterActions.forEach((updt) => {
+    workingString = updt.action.apply(workingString);
+    console.log(
+      "operation: " + updt.action.str() + ", updated string: " + workingString
+    );
+  });
+  console.log(
+    "client " +
+      myID +
+      " ended merging with string " +
+      workingString +
+      ", on timestamp " +
+      lastUpdatedOperaion.timestamp.str()
+  );
+}
+function performActionAndLog(timestamp, workingString, action) {
+  console.log(
+    "client " +
+      myID +
+      " started merging, from " +
+      timestamp.index +
+      ", on " +
+      workingString
+  );
+  var prevString = workingString;
+  workingString = action.apply(workingString);
+  console.log(
+    "operation: " + action.str() + ", updated string: " + workingString
+  );
+  updates.push({
+    action: action,
+    timestamp: timestamp,
+    updatedString: workingString,
+  });
+  lastUpdatedOperaion = {
+    action: action,
+    timestamp: timestamp,
+    updatedString: workingString,
+    previousString: prevString,
+  };
+  return workingString;
+}
+
+function testAll() {
+  applyMergeAlgorithm(new act.InsertAction(-1, "1"), new ts.Timestamp(1, 2));
+  applyMergeAlgorithm(new act.InsertAction(-1, "2"), new ts.Timestamp(2, 2));
+  applyMergeAlgorithm(new act.InsertAction(-1, "3"), new ts.Timestamp(3, 2));
+  applyMergeAlgorithm(new act.InsertAction(-1, "0"), new ts.Timestamp(0, 2));
 }
