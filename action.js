@@ -6,6 +6,7 @@ class DeleteAction {
     return new DeleteAction(parseInt(arr[1]));
   }
   apply(str) {
+    if(this.index < 0 || this.index > str.length) return str;
     return str.slice(0, this.index) + str.slice(this.index + 1);
   }
   str(){
@@ -25,6 +26,7 @@ class InsertAction {
     if (this.index == -1) {
       return str + this.toAppend;
     }
+    if(this.index < 0 || this.index > str.length) return str;
     return str.slice(0, this.index) + this.toAppend + str.slice(this.index);
   }
   str(){

@@ -62,7 +62,7 @@ var lastUpdatedOperaion = {
   updatedString: initialString,
   previousString: initialString,
 };
-// testAll();
+testAll();
 
 function connectToPeer(peer) {
   // Create a new TCP client.
@@ -408,8 +408,8 @@ function applyLaterOperations(action, timestamp) {
 }
 function applyOperationsAndLog(laterActions, action, timestamp) {
   var workingString = laterActions[0].previousString;
-  workingString = performActionAndLog(timestamp, workingString, action);
   // console.log(laterActions);
+  workingString = performActionAndLog(timestamp, workingString, action);
   laterActions.forEach((updt) => {
     workingString = updt.action.apply(workingString);
     console.log(
@@ -443,6 +443,7 @@ function performActionAndLog(timestamp, workingString, action) {
     action: action,
     timestamp: timestamp,
     updatedString: workingString,
+    previousString: prevString,
   });
   lastUpdatedOperaion = {
     action: action,
