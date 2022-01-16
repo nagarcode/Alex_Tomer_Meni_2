@@ -4,36 +4,46 @@ function sleepSync(millis) {
 }
 // Include Nodejs' net module.
 var split = require("split");
+const fs = require("fs");
+const q = require("q");
+var join = require("join").Join.create();
 const Net = require("net");
 const a = require("./input_parser");
 const ts = require("./timestamp");
+const action = require("./action");
 const index = process.argv[2];
 var inputParser = new a.InputParser("input-file-" + index + ".txt");
 const neighbors = inputParser.parse();
 const myID = inputParser.id;
 const myPort = inputParser.port;
-const initialString = inputParser.initialString;
+var initialString = inputParser.initialString;
 var otherClients = []; /////
 var numberOfOtherClients = 0; /////
+var operations = ParseOperations();
 //var vectorTimeStamp = InitialiseVectorTimeStamp();
 var timeStamp = 0;
+var otherClientsConnected = false;
+var goodbyesCounter = 0;
+var connectionsClosedCounter = 0;
+var socketsToDestroy = [];
+var areSocketsDestroyed = false;
 
-setTimeout(function () {
-  connectToPeers();
-}, 0);
+//console.log(neighbors.length);
 
-setTimeout(function () {
-  setupServer(myPort);
-}, 0);
-//connectToPeers();
+connectToPeers();
 
-setTimeout(function () {
-  InitialiseTimeStamp();
-}, 0);
+if(!otherClientsConnected && numberOfOtherClients == neighbors.length){
+  otherClientsConnected = true;
+  ClientLoop();
+  //RunLoop();
+}
 
-setTimeout(function () {
-  RunLoop();
-}, 0);
+setupServer(myPort);
+
+
+InitialiseTimeStamp();
+
+//InitialiseSystem();
 
 // setupServer(myPort);
 // connectToPeers();
@@ -59,6 +69,7 @@ function connectToPeer(peer) {
   const client = new Net.Socket();
 
   otherClients[numberOfOtherClients] = client; /////
+  socketsToDestroy.push(client);
   numberOfOtherClients += 1; /////
   // Send a connection request to the server.
   client.connect({ port: peer.port, host: peer.host }),
@@ -77,24 +88,52 @@ function connectToPeer(peer) {
   stream.on("data", function (message) {
     console.log(`Message received from server: ${message.toString()}`);
 
-    const update = ParseUpdateFromReceivedMessage(message.toString());
-    const sendersTimeStamp = ParseTimeStampFromReceivedMessage(
-      message.toString()
-    );
-    const sendersID = ParseSendersIDFromReceivedMessage(message.toString());
+    if(message.toString() == "goodbye"){
+      goodbyesCounter += 1;
+      if(goodbyesCounter == neighbors.length){
+        for(const socketToDestroy of socketsToDestroy)
+          socketToDestroy.destroy();
+      }
+    }
+    else if(message.toString() != ""){
+      const updateOperation = ParseUpdateOperationFromReceivedMessage(message.toString());
+      const sendersTimeStamp = ParseTimeStampFromReceivedMessage(
+        message.toString()
+      );
+      const sendersID = ParseSendersIDFromReceivedMessage(message.toString());
 
-    timeStamp = Math.max(timeStamp, sendersTimeStamp) + 1;
+      timeStamp = Math.max(timeStamp, sendersTimeStamp) + 1;
 
-    //TODO: Apply the merge algorithm.
+      var updateOperationTokens = updateOperation.split(" ");
+      var actionToBeApplied = undefined;
+      var timeStampForActionToBeApplied = new ts.Timestamp(timeStamp, parseInt(sendersID));
+
+      if((updateOperation.split(" "))[0] == "insert")
+        actionToBeApplied = (action.InsertAction).fromArr(updateOperation.split(" "));
+      else
+        actionToBeApplied = (action.DeleteAction).fromArr(updateOperation.split(" "));
+
+
+      applyMergeAlgorithm(actionToBeApplied, timeStampForActionToBeApplied);
+    } 
   });
 
   // Request an end to the connection after the data has been received.
-  /* client.end();
+  ///* client.end();
+  //});
+  client.on("close", () => {
+    console.log("connection is now closed. Debug flag 1");
+    connectionsClosedCounter += 1;
+    if(connectionsClosedCounter == neighbors.length){
+      console.log(`Client ${myID} replica is: ${initialString}`);
+      console.log(`Client ${myID} is exiting`);
+      process.exit();
+    }
   });
 
-  client.on("end", function () {
-    console.log("Requested an end to the TCP connection");
-  });*/
+  //client.on("end", function () {
+    //console.log("Requested an end to the TCP connection");
+  //});*/
 }
 
 function connectToPeers() {
@@ -116,35 +155,51 @@ function setupServer(port) {
   // socket dedicated to that client.
   server.on("connection", function (socket) {
     console.log("A new connection has been established.");
-
-    otherClients[numberOfOtherClients] = socket;
+    otherClients.push(socket);
     numberOfOtherClients += 1;
 
     // Now that a TCP connection has been established, the server can send data to
     // the client by writing to its socket.
     //socket.write("Hello, client.\n");
-    for (const operation of inputParser.actions) {
-      const updatedString = operation.apply(initialString);
-      var message =
-        updatedString + "*" + timeStamp.toString() + "*" + myID + "\n";
+    /*for(const operation of ParseOperations()){
+      var message = operation + "*" + timeStamp.toString() + "*" + myID + "\n";
       socket.write(message);
       timeStamp += 1;
-    }
+
+    }*/
 
     var stream = socket.pipe(split());
 
     stream.on("data", (message) => {
       console.log(`Message received from client: ${message.toString()}`);
 
-      //timeStamp = Math.max(timeStamp, sendersTimeStamp) + 1;
+      if(message.toString() == "goodbye"){
+        goodbyesCounter += 1;
+        if(goodbyesCounter == neighbors.length){
+          for(const socketToDestroy of socketsToDestroy)
+            socketToDestroy.destroy();
+        }
+      }
 
-      const update = ParseUpdateFromReceivedMessage(message.toString());
-      const sendersTimeStamp = ParseTimeStampFromReceivedMessage(
-        message.toString()
-      );
-      const sendersID = ParseSendersIDFromReceivedMessage(message.toString());
+      else if(message.toString() != ""){
+        const updateOperation = ParseUpdateOperationFromReceivedMessage(message.toString());
+        const sendersTimeStamp = ParseTimeStampFromReceivedMessage(message.toString());
+        const sendersID = ParseSendersIDFromReceivedMessage(message.toString());
 
-      timeStamp = Math.max(timeStamp, sendersTimeStamp) + 1;
+        timeStamp = Math.max(timeStamp, sendersTimeStamp) + 1;
+
+        var updateOperationTokens = updateOperation.split(" ");
+        var actionToBeApplied = undefined;
+        var timeStampForActionToBeApplied = new ts.Timestamp(timeStamp, parseInt(sendersID));
+
+        if((updateOperation.split(" "))[0] == "insert")
+          actionToBeApplied = (action.InsertAction).fromArr(updateOperation.split(" "));
+        else
+          actionToBeApplied = (action.DeleteAction).fromArr(updateOperation.split(" "));
+
+
+        applyMergeAlgorithm(actionToBeApplied, timeStampForActionToBeApplied);
+      }  
 
       //TODO: Apply the merge algorithm.
     });
@@ -165,16 +220,34 @@ function setupServer(port) {
 
       //TODO: Apply the merge algorithm.
     });*/
-
+    if(!otherClientsConnected && numberOfOtherClients == neighbors.length){
+      otherClientsConnected = true;
+      ClientLoop();
+      //RunLoop();
+    }
     // When the client requests to end the TCP connection with the server, the server
     // ends the connection.
-    // socket.on("end", function () {
-    //console.log("Closing connection with the client");
-    //});
+    socket.on("end", function () {
+    console.log("Closing connection with the client");
+    });
+
+    socket.on("close", () => {
+      console.log("connection is now closed. Debug flag 1");
+      connectionsClosedCounter += 1;
+      if(connectionsClosedCounter == neighbors.length){
+        console.log(`Client ${myID} replica is: ${initialString}`);
+        console.log(`Client ${myID} is exiting`);
+        process.exit();
+      }
+    });
     //socket.on("error", function (err) {
     // console.log(`Error: ${err}`);
     // });
   });
+
+  //if(numberOfOtherClients == neighbors.length)
+    //ClientLoop();
+
   return server;
 }
 
@@ -182,7 +255,7 @@ function setupServer(port) {
 
 //console.log((inputParser.actions).length);
 
-function ParseUpdateFromReceivedMessage(message) {
+function ParseUpdateOperationFromReceivedMessage(message) {
   const messageTokens = message.split("*");
 
   return messageTokens[0];
@@ -200,30 +273,122 @@ function ParseSendersIDFromReceivedMessage(message) {
   return messageTokens[2];
 }
 
-function InitialiseTimeStamp() {
+async function InitialiseTimeStamp(){
   timeStamp = 0;
 }
 
-function RunLoop() {
-  for (const operation of inputParser.actions) {
-    const updatedString = operation.apply(initialString);
-    var message =
-      updatedString + "*" + timeStamp.toString() + "*" + myID + "\n";
+async function InitialiseSystem(){
 
-    //console.log(otherClients.length);
+  const completeConnectionToClients = await connectToPeers();
+  const generateServer = await setupServer(myPort, completeConnectionToClients);
+  await InitialiseTimeStamp(generateServer);
 
-    for (const client of otherClients) {
-      //setTimeout(function(){
-      //client.write(message);
-      //timeStamp += 1;
-      //}, 1000);
+  console.log("initialisation stage is complete!");
+
+}
+
+function ParseOperations(){
+
+  var dataRead = fs.readFileSync("./input-file-" +  process.argv[2] + ".txt", {encoding : "utf8", flag : "r"});
+
+  const dataReadParts = dataRead.split("\r\n");
+
+  var parsingFlag = 9999999;
+  var operations = [];
+
+  for(i = 5; i < dataReadParts.length; i++){
+    if(i < parsingFlag){
+      if(dataReadParts[i] == "")
+        parsingFlag = i;
+    
+    }
+    else if(i > parsingFlag){
+      if(dataReadParts[i] == "")
+        break;
+      else
+        operations.push(dataReadParts[i]);
+    }
+  }
+
+  return operations;
+
+}
+
+function RunLoop(){
+
+  for(const operation of ParseOperations()){
+    var message = operation + "*" + timeStamp.toString() + "*" + myID + "\n";
+
+    for(const client of otherClients){
       client.write(message);
       timeStamp += 1;
     }
 
-    setTimeout(function () {}, 5000);
+    //setTimeout(function () {}, 5000);
   }
 }
+
+function AddTaskToEventLoop(item){
+
+  initialString = item.apply(initialString);
+  /*var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
+  operations.shift();
+
+  for(const client of otherClients){
+    client.write(message);
+    timeStamp += 1;
+  }*/
+}
+
+function SendGoodbye(){
+  for(const client of otherClients){
+    client.write("goodbye\n");
+  }
+}
+
+function foo1(){
+  console.log("Hello from foo1!");
+}
+
+function foo2(){
+  console.log("Hello from foo2!");
+}
+
+function ClientLoop(){
+ 
+  
+  for(const actionToBeApplied of inputParser.actions){
+    AddTaskToEventLoop(actionToBeApplied, join.add());
+    //timeStamp += 1;
+    //var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
+    //operations.shift();
+    //join.then(function(){
+    //console.log("Hello from join!!!");
+     // });
+
+    for(const client of otherClients){
+      timeStamp += 1;
+      var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
+      client.write(message);
+      timeStamp += 1;
+    }
+    operations.shift();
+
+     //join.then(function(){
+    //console.log("Hello from join!!!");
+    //});
+    //actionToBeApplied.AddTask(join.add());
+    //SendGoodbye(join.then());
+  }
+
+  SendGoodbye(join.then());
+
+  //while(true){
+    //if(goodbyesCounter == )
+  //}
+  
+}
+
 function applyMergeAlgorithm(action, timestamp) {
   if (lastUpdatedOperaion.timestamp.greaterThan(timestamp)) {
     applyLaterOperations(action, timestamp);

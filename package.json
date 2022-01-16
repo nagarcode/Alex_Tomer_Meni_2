@@ -17,6 +17,8 @@
   },
   "homepage": "https://github.com/nagarcode/single-threaded-peer-2-peer-doc-sharing-system#readme",
   "dependencies": {
+    "join": "^3.0.0",
+    "q": "^1.5.1",
     "split": "^1.0.1"
   }
 }
