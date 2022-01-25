@@ -26,6 +26,9 @@ class InsertAction {
     if (this.index == -1) {
       return str + this.toAppend;
     }
+    if (this.index == -2) {
+      return str;
+    }
     if(this.index < 0 || this.index > str.length) return str;
     return str.slice(0, this.index) + this.toAppend + str.slice(this.index);
   }

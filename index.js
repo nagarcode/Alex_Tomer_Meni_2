@@ -13,10 +13,33 @@ const ts = require("./timestamp");
 const action = require("./action");
 const index = process.argv[2];
 var inputParser = new a.InputParser("input-file-" + index + ".txt");
+
+
+InitialiseTimeStamp();
+
+//InitialiseSystem();
+
+// setupServer(myPort);
+// connectToPeers();
+const act = require("./action");
+const updates = [
+  // {
+  //   action: new act.InsertAction(-1, "2"),
+  //   timestamp: new ts.Timestamp(2, -1),
+  //   updatedString: initialString,
+  //   previousString: initialString,
+  // },
+];
 const neighbors = inputParser.parse();
+var initialString = inputParser.initialString;
+var lastUpdatedOperaion = {
+  action: new act.InsertAction(-2, ""),
+  timestamp: new ts.Timestamp(-1, -1),
+  updatedString: initialString,
+  previousString: initialString,
+};
 const myID = inputParser.id;
 const myPort = inputParser.port;
-var initialString = inputParser.initialString;
 var otherClients = []; /////
 var numberOfOtherClients = 0; /////
 var operations = ParseOperations();
@@ -40,29 +63,7 @@ if(!otherClientsConnected && numberOfOtherClients == neighbors.length){
 
 setupServer(myPort);
 
-
-InitialiseTimeStamp();
-
-//InitialiseSystem();
-
-// setupServer(myPort);
-// connectToPeers();
-const act = require("./action");
-const updates = [
-  {
-    action: new act.InsertAction(-1, "2"),
-    timestamp: new ts.Timestamp(2, -1),
-    updatedString: initialString,
-    previousString: initialString,
-  },
-];
-var lastUpdatedOperaion = {
-  action: new act.InsertAction(-1, "2"),
-  timestamp: new ts.Timestamp(2, -1),
-  updatedString: initialString,
-  previousString: initialString,
-};
-testAll();
+// testAll();
 
 function connectToPeer(peer) {
   // Create a new TCP client.
@@ -328,9 +329,10 @@ function RunLoop(){
   }
 }
 
-function AddTaskToEventLoop(item){
+function AddTaskToEventLoop(item, timestamp){
 
-  initialString = item.apply(initialString);
+  // initialString = item.apply(initialString);
+  applyMergeAlgorithm(item, timestamp);
   /*var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
   operations.shift();
 
@@ -358,7 +360,8 @@ function ClientLoop(){
  
   
   for(const actionToBeApplied of inputParser.actions){
-    AddTaskToEventLoop(actionToBeApplied, join.add());
+    var timeStampForActionToBeApplied = new ts.Timestamp(timeStamp, myID);
+    AddTaskToEventLoop(actionToBeApplied,timeStampForActionToBeApplied ,join.add());
     //timeStamp += 1;
     //var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
     //operations.shift();
@@ -368,6 +371,7 @@ function ClientLoop(){
 
     for(const client of otherClients){
       timeStamp += 1;
+
       var message = operations[0] + "*" + timeStamp.toString() + "*" + myID + "\n";
       client.write(message);
       timeStamp += 1;
@@ -393,6 +397,7 @@ function applyMergeAlgorithm(action, timestamp) {
   if (lastUpdatedOperaion.timestamp.greaterThan(timestamp)) {
     applyLaterOperations(action, timestamp);
   } else {
+
     performActionAndLog(timestamp, lastUpdatedOperaion.updatedString, action);
   }
 }
